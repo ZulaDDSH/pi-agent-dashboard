@@ -108,8 +108,39 @@ export function findBundledPluginsDir(): string | null {
 }
 
 /**
- * Discover plugin manifests from the monorepo, user-installed plugins, and
- * bundled-resources plugins (in that priority order).
+ * Return every candidate `@blackbelt-technology` scope directory that holds
+ * plugin packages, walking up from this module's own location.
+ *
+ * A plain `npm i -g @blackbelt-technology/pi-agent-dashboard` ships all 13
+ * plugins as dependencies under
+ * `<install>/node_modules/@blackbelt-technology/`, which is NOT a monorepo
+ * `packages/` dir, NOT `~/.pi/dashboard/plugins/`, and NOT `resources/plugins/`.
+ * None of the three original search dirs exist in that layout, so discovery
+ * returned zero plugins and every bundled plugin (kb, automation, goal, ...)
+ * silently failed to mount its routes.
+ *
+ * The scope is reached by walking up rather than by a relative path so the
+ * same code works from the monorepo (`packages/`), from an npm-global install,
+ * and from a nested `node_modules` layout.
+ */
+export function findNpmScopedPluginDirs(): string[] {
+  const found: string[] = [];
+  let dir = path.dirname(url.fileURLToPath(import.meta.url));
+  const stop = path.parse(dir).root;
+  while (dir !== stop) {
+    const candidate = path.join(dir, "node_modules", "@blackbelt-technology");
+    if (fs.existsSync(candidate)) found.push(candidate);
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return found;
+}
+
+/**
+ * Discover plugin manifests from the monorepo, user-installed plugins,
+ * bundled-resources plugins, and npm-installed scoped packages (in that
+ * priority order).
  *
  * Results are cached for the process lifetime. Pass an explicit `repoRoot`
  * to force discovery from a specific directory (useful for tests).
@@ -129,6 +160,9 @@ export function discoverPlugins(repoRoot?: string): DiscoveredPlugin[] {
     if (installed) searchDirs.push(installed);
     const bundled = findBundledPluginsDir();
     if (bundled) searchDirs.push(bundled);
+    // npm-global install layout: plugins live under the package's own
+    // node_modules scope. See findNpmScopedPluginDirs.
+    searchDirs.push(...findNpmScopedPluginDirs());
   }
 
   const results: DiscoveredPlugin[] = [];
