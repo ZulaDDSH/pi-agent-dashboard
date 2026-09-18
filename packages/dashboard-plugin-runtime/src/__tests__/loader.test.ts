@@ -7,6 +7,7 @@ import {
   clearDiscoveryCache,
   clearStatusStore,
   discoverPlugins,
+  findNpmScopedPluginDirs,
   getPluginStatusStore,
   loadServerEntries,
 } from "../server/loader.js";
@@ -74,6 +75,24 @@ function writePlugin(name: string, manifest: Record<string, unknown>, serverCode
   }
   return undefined;
 }
+
+describe("findNpmScopedPluginDirs", () => {
+  it("finds nearest and ancestor npm scope directories", () => {
+    const outerScope = path.join(tmpDir, "node_modules", "@blackbelt-technology");
+    const nestedScope = path.join(tmpDir, "app", "node_modules", "@blackbelt-technology");
+    const startDir = path.join(
+      nestedScope,
+      "dashboard-plugin-runtime",
+      "src",
+      "server",
+    );
+
+    fs.mkdirSync(outerScope, { recursive: true });
+    fs.mkdirSync(startDir, { recursive: true });
+
+    expect(findNpmScopedPluginDirs(startDir)).toEqual([nestedScope, outerScope]);
+  });
+});
 
 describe("discoverPlugins", () => {
   it("returns empty array when packages dir does not exist", () => {
