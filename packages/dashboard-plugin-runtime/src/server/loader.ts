@@ -123,9 +123,9 @@ export function findBundledPluginsDir(): string | null {
  * same code works from the monorepo (`packages/`), from an npm-global install,
  * and from a nested `node_modules` layout.
  */
-export function findNpmScopedPluginDirs(): string[] {
+export function findNpmScopedPluginDirs(startDir?: string): string[] {
   const found: string[] = [];
-  let dir = path.dirname(url.fileURLToPath(import.meta.url));
+  let dir = startDir ?? path.dirname(url.fileURLToPath(import.meta.url));
   const stop = path.parse(dir).root;
   while (dir !== stop) {
     const candidate = path.join(dir, "node_modules", "@blackbelt-technology");
@@ -160,8 +160,6 @@ export function discoverPlugins(repoRoot?: string): DiscoveredPlugin[] {
     if (installed) searchDirs.push(installed);
     const bundled = findBundledPluginsDir();
     if (bundled) searchDirs.push(bundled);
-    // npm-global install layout: plugins live under the package's own
-    // node_modules scope. See findNpmScopedPluginDirs.
     searchDirs.push(...findNpmScopedPluginDirs());
   }
 
